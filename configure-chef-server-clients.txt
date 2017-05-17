@@ -1,0 +1,78 @@
+instantiate chef-server as per online instructions
+
+
+create your own rootca
+create intermediate cert signed by rootca
+
+now you are a cert authority
+
+create a private key that nginx has access to
+create server cert request with that nginx key
+
+sign csr with intermediate cert
+
+on chef-server, install nginx private key and signed cert like so (create files
+as necessary)
+[root@test00 ~]# cat /etc/opscode/chef-server.rb
+nginx['ssl_certificate']  = "/var/opt/opscode/nginx/ca/test00.localdomain.crt"
+nginx['ssl_certificate_key']  = "/var/opt/opscode/nginx/ca/test00.localdomain.key"
+
+create organization on chef-server like so
+
+
+[root@test00 ~]# /usr/bin/chef-server-ctl org-create test3 "Test 3" --association_user admin
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEArQa/9uaESMdS6xfkhDI/JrglbwcA5/a0SJwnBU7osZ+WnwGj
+rNB/E1ijWP0CA4DopdKLFlQVV7F0Gj9dgtif/u/CXrq7kbFdPUUvQDP0gXPrzCGg
+nWl2eYnBekZ5FaHldx90owj+UPwpM6KOSRitFNXjp4SH9p2kE9rJ8wyuc+Kwt+R1
+Jo/N/UbrT56iJ0wrpWZly5Bh9QWOWENcbj9eIecOdBmTD7TnFvhZ1Zc2nVuLfsL2
+bzgft6ObOlzkLG5lD+eBhEw0fwWpBHG16fD9WvrCTVs6ESi14zS1WlT4hcPuuhkJ
+KB42+nmjCnJEDRQmLwyZ9tXRgW9EhW7cnA+6PwIDAQABAoIBAHjcKCb8qhZ0NLVG
+wTaeKoKPSoada8KcDx5RBOiuT9gS05FKAdxq3vjSh3dXc5qi5t89jC4Smb3hlGnp
+LRaC3m+jZi/pW6/PJoPv2auNHxN1t5WlP5301u7ajK0uoNG9fp2Q+VYQqCRFnzoU
+KDNi6zOMnDKdXqOjRcMgpsQBbbI/1ozKCwz388BA266/e+Qxbl70LTmhLptQh/8F
+U9peYKR9KFQ7V5JZs+0WN5BLQv4r82EdbarC2X7r7G3SF8cx1l3Un5eAwryTSYK1
+Qo7fIICWurwKF/bzLLyAgyYtZ1m8BrhLXJCifhjgNIWj4ygAQBRGuYF3K8xYFQRY
+3/QJc9ECgYEA1AJqjc4f417liLeQsfN86YTtfuA3On2aDaZ251YxrTbZGpF14yoq
+KyQlVlTWHwpHW+1NrKX3dxft9l/deCEuZsvn0Kdm+ZAHBrEpE7zGRkkY6eAQmXne
+h7I43QuBN9o/ccQnSn9iIEf0oYJLbD/neZtSG2+yK1+4TbRaa0A15EMCgYEA0O2e
+XaMnlTaehPz8u6vHAyJTaS9s7UhLLCSTrjEsISBk4nDoLnjsSHcOiJJ89ex+MbWr
+NDL8s2VOy7WnQ17G/dTPG+h936woD4eqzZ2vDXW389AwzW9D/GwqKVuEtC6L4ORC
+5OBTlq8hBU1GUpiCq63q+tpNgVC5NF+R4q9yUFUCgYEAk0ZSasujjzkezkhmNZfl
+T/rNWHO9Kd6So6TduHpB7AfL7Q7bC8EAphNn9H7ed5WWWJ+Sc7qfG5X98kZJ/Odf
+6nz/PgzsFbUdjGKJHHLocW7Z5a2HGnZ0RWNi6PrS+s+bfxY6DSBMNAyIPaHbbwk9
+bVaeRPzkkgjeaOw+W36xcS0CgYB93popOZEwUQ6hejTc77lfBwAPf7X1Ije/qW2b
+ZR57+qMs1O7ciJd5dNi5qN9F3auNUTCKqykY/zDAg3j4mpHx/JKl8qRa68Ha0VYy
+uAvtZP1lEwlDywO/gH7KGcvSLbSx0XMHpqpVPr77DboPKriWq5nEdV56SOK7TdR7
+KE4LXQKBgCsjWbT3/0vJMxQ6jy/GDPW+cynYWokjCuXGYVJHf/JnYgzedPDBfn4X
+LdxuNluWxnn/G317EvErNgaJK7prPQzmeZaOeHW7Rg+A6c52ye5CzK1RcYjakAyS
+IshnoADp2i/2WOxm2RAGOcYRfXXfAHYN/m7IMXXe9qAm00Bq9/lW
+-----END RSA PRIVATE KEY-----
+
+
+
+
+the rsa priv key output goes on chef client in /etc/chef/validation.pem
+and on chef client /etc/chef/client.rb put this line
+
+validation_client_name		       'test3-validator'
+
+
+
+
+on new node to instantiate as chef-client, prepare these:
+
+1. copy the certs that signed the nginx ssl cert
+  cat rootca.cert.pem >> /opt/chef/embedded/ssl/certs/cacert.pem
+  cat intermediate.cert.pem >> /opt/chef/embedded/ssl/certs/cacert.pem
+
+2. copy the validator key to /etc/chef/validation.pem
+
+3. in /etc/chef/client.rb put this line
+
+validation_client_name		       'test3-validator'
+
+4. run chef-client like so
+
+/usr/bin/chef-client --server https://test00.localdomain/organizations/test3 \
+		     --environment _default --node-name test01
